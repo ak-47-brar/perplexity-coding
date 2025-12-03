@@ -37,6 +37,10 @@ jobs:
               with open('proxies.txt', 'r') as f:
                   for line in f:
                       line = line.strip()
+                      # Remove socks5:// prefix if present
+                      if line.startswith('socks5://'):
+                          line = line.replace('socks5://', '')
+                      
                       if line and ':' in line:
                           parts = line.split(':')
                           if len(parts) >= 2:
