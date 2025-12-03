@@ -1,0 +1,18 @@
+name: Sync to Hugging Face hub
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Push to hub
+        env:
+          # You must add HF_TOKEN to your GitHub Repository Secrets
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git push https://fgjfj:$HF_TOKEN@huggingface.co/spaces/fgjfj/proxy_checker main
