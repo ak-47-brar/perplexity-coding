@@ -15,4 +15,4 @@ jobs:
         env:
           # You must add HF_TOKEN to your GitHub Repository Secrets
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push https://fgjfj:$HF_TOKEN@huggingface.co/spaces/fgjfj/proxy_checker main
+        run: git push --force https://fgjfj:$HF_TOKEN@huggingface.co/spaces/fgjfj/proxy_checker main
