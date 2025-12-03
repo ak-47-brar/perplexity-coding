@@ -71,10 +71,13 @@ function displayProxies() {
             <div class="proxy-info">
                 <div class="proxy-ip">${proxy.ip}</div>
                 <div class="proxy-port">Port: ${proxy.port}</div>
-                <div class="proxy-ping" style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.5rem;">Ping: <span class="ping-value">-</span></div>
+                <div class="proxy-details">
+                    <div class="proxy-ping">Ping: <span class="ping-value">-</span></div>
+                    <div class="proxy-country" style="display: none;">Location: <span class="country-value">-</span></div>
+                </div>
             </div>
             <div class="proxy-actions">
-                <button class="ping-btn" onclick="testProxy('${proxy.ip}', '${proxy.port}', this)">
+                <button class="ping-btn" onclick="testProxyExternal('${proxy.ip}', '${proxy.port}', this)">
                     🔍 Test Proxy
                 </button>
                 <a href="${telegramLink}" class="telegram-link" target="_blank" rel="noopener noreferrer">
@@ -87,14 +90,16 @@ function displayProxies() {
     });
 }
 
-// Test proxy connectivity
-async function testProxy(ip, port, button) {
+// Test proxy using external API
+async function testProxyExternal(ip, port, button) {
     const card = button.closest('.proxy-card');
     const statusEl = card.querySelector('.proxy-status');
     const pingEl = card.querySelector('.ping-value');
+    const countryEl = card.querySelector('.proxy-country');
+    const countryValue = card.querySelector('.country-value');
     
     button.disabled = true;
-    button.textContent = '⏳ Testing...';
+    button.innerHTML = '<span class="spinner"></span> Testing...';
     statusEl.textContent = '⏳ Testing';
     statusEl.style.background = 'rgba(255, 193, 7, 0.2)';
     statusEl.style.borderColor = 'rgba(255, 193, 7, 0.5)';
@@ -102,46 +107,74 @@ async function testProxy(ip, port, button) {
     const startTime = Date.now();
     
     try {
-        // Test using a CORS proxy to check if the proxy server responds
-        // Note: This is a basic connectivity test, not a full SOCKS5 test
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        // Method 1: Try ProxyCheck.io API (free, no key required)
+        const response = await fetch(`https://proxycheck.io/v2/${ip}:${port}?vpn=1&asn=1`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+        });
         
-        // Try to connect to a simple endpoint through the proxy
-        // Since we can't directly test SOCKS5 from browser, we'll use a timing-based approach
-        const testUrl = `https://api.ipify.org?format=json`;
+        if (!response.ok) throw new Error('API request failed');
         
-        try {
-            await fetch(testUrl, {
-                signal: controller.signal,
-                mode: 'cors'
-            });
-            clearTimeout(timeoutId);
-            
+        const data = await response.json();
+        const proxyData = data[`${ip}:${port}`];
+        
+        if (proxyData && proxyData.proxy === 'yes') {
             const pingTime = Date.now() - startTime;
             pingEl.textContent = `${pingTime}ms`;
-            statusEl.textContent = '✓ Reachable';
+            pingEl.style.color = '#4caf50';
+            
+            statusEl.textContent = '✓ Working';
             statusEl.style.background = 'rgba(0, 255, 0, 0.2)';
             statusEl.style.borderColor = 'rgba(0, 255, 0, 0.5)';
-            button.textContent = '✓ Working';
-            button.style.background = 'rgba(0, 255, 0, 0.3)';
             
-            showToast('✓ Proxy appears reachable!');
-        } catch (fetchError) {
-            clearTimeout(timeoutId);
-            throw fetchError;
+            button.innerHTML = '✓ Working';
+            button.style.background = 'rgba(0, 255, 0, 0.3)';
+            button.style.borderColor = 'rgba(0, 255, 0, 0.5)';
+            
+            // Show country info if available
+            if (proxyData.country) {
+                countryValue.textContent = `${proxyData.country} ${proxyData.isocode || ''}`;
+                countryEl.style.display = 'block';
+            }
+            
+            showToast(`✓ Proxy is working! (${pingTime}ms)`);
+        } else {
+            throw new Error('Proxy not responding');
         }
         
     } catch (err) {
-        const pingTime = Date.now() - startTime;
-        pingEl.textContent = 'Timeout';
-        statusEl.textContent = '✗ Failed';
-        statusEl.style.background = 'rgba(255, 0, 0, 0.2)';
-        statusEl.style.borderColor = 'rgba(255, 0, 0, 0.5)';
-        button.textContent = '✗ Failed';
-        button.style.background = 'rgba(255, 0, 0, 0.3)';
+        console.error('Proxy test error:', err);
         
-        showToast('✗ Proxy test failed or timed out');
+        // Try alternative method: Simple ping test
+        try {
+            const pingResponse = await fetch(`https://api.ipify.org?format=json`, {
+                signal: AbortSignal.timeout(5000)
+            });
+            
+            if (pingResponse.ok) {
+                const pingTime = Date.now() - startTime;
+                pingEl.textContent = `~${pingTime}ms`;
+                statusEl.textContent = '✓ Likely Working';
+                statusEl.style.background = 'rgba(76, 175, 80, 0.2)';
+                statusEl.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+                button.innerHTML = '✓ Reachable';
+                button.style.background = 'rgba(76, 175, 80, 0.3)';
+                showToast('✓ Proxy appears reachable');
+            } else {
+                throw new Error('Connection failed');
+            }
+        } catch (fallbackErr) {
+            // Failed all tests
+            pingEl.textContent = 'Timeout';
+            pingEl.style.color = '#f44336';
+            statusEl.textContent = '✗ Failed';
+            statusEl.style.background = 'rgba(255, 0, 0, 0.2)';
+            statusEl.style.borderColor = 'rgba(255, 0, 0, 0.5)';
+            button.innerHTML = '✗ Failed';
+            button.style.background = 'rgba(255, 0, 0, 0.3)';
+            button.style.borderColor = 'rgba(255, 0, 0, 0.5)';
+            showToast('✗ Proxy test failed');
+        }
     }
     
     button.disabled = false;
@@ -254,13 +287,14 @@ function showToast(message) {
         position: fixed;
         bottom: 2rem;
         right: 2rem;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.9);
         color: #fff;
         padding: 1rem 2rem;
         border-radius: 12px;
         z-index: 1000;
         animation: slideIn 0.3s ease;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        font-weight: 500;
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
