@@ -13,10 +13,6 @@ const searchBtn = document.getElementById('searchBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const filterBtns = document.querySelectorAll('.filter-btn[data-filter]');
 
-// Configuration
-const USE_BACKEND = false; // Set to true if you deploy to Vercel/Netlify
-const BACKEND_URL = '/api/test-proxy'; // Your serverless function URL
-
 async function fetchProxies() {
     loading.style.display = 'block';
     error.style.display = 'none';
@@ -80,7 +76,7 @@ function displayProxies() {
             </div>
             <div class="proxy-actions">
                 <button class="ping-btn" onclick="testProxyExternal('${proxy.ip}', '${proxy.port}', this)">
-                    🔍 Test Proxy
+                    🔍 Test IP
                 </button>
                 <a href="${telegramLink}" class="telegram-link" target="_blank" rel="noopener noreferrer">
                     📱 Add to Telegram
@@ -92,7 +88,7 @@ function displayProxies() {
     });
 }
 
-// Test proxy using CORS-enabled APIs
+// Test proxy using HTTPS-only APIs
 async function testProxyExternal(ip, port, button) {
     const card = button.closest('.proxy-card');
     const statusEl = card.querySelector('.proxy-status');
@@ -109,81 +105,85 @@ async function testProxyExternal(ip, port, button) {
     const startTime = Date.now();
     
     try {
-        let testResult;
+        // Use ipapi.co (HTTPS, free, no key required, 30k requests/month)
+        const response = await fetch(`https://ipapi.co/${ip}/json/`, {
+            signal: AbortSignal.timeout(8000)
+        });
         
-        if (USE_BACKEND) {
-            // Use serverless function (no CORS issues)
-            const response = await fetch(`${BACKEND_URL}?ip=${ip}&port=${port}`, {
-                signal: AbortSignal.timeout(10000)
-            });
-            testResult = await response.json();
-        } else {
-            // Use CORS-enabled free API (ip-api.com)
-            const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,isp,proxy,as`, {
-                signal: AbortSignal.timeout(8000)
+        if (!response.ok) {
+            // Fallback to ipwho.is (HTTPS, free)
+            const fallbackResponse = await fetch(`https://ipwho.is/${ip}`, {
+                signal: AbortSignal.timeout(5000)
             });
             
-            if (!response.ok) throw new Error('API request failed');
+            if (!fallbackResponse.ok) throw new Error('Both APIs failed');
             
-            const data = await response.json();
-            const pingTime = Date.now() - startTime;
-            
-            testResult = {
-                success: data.status === 'success',
-                ping: pingTime,
-                country: data.country,
-                countryCode: data.countryCode,
-                isp: data.isp
-            };
-        }
-        
-        if (testResult.success || testResult.country) {
-            const pingTime = testResult.ping || (Date.now() - startTime);
-            pingEl.textContent = `${pingTime}ms`;
-            pingEl.style.color = '#4caf50';
-            
-            statusEl.textContent = '✓ IP Valid';
-            statusEl.style.background = 'rgba(0, 255, 0, 0.2)';
-            statusEl.style.borderColor = 'rgba(0, 255, 0, 0.5)';
-            
-            button.innerHTML = '✓ Reachable';
-            button.style.background = 'rgba(0, 255, 0, 0.3)';
-            button.style.borderColor = 'rgba(0, 255, 0, 0.5)';
-            
-            // Show country info
-            if (testResult.country) {
-                const flag = getCountryFlag(testResult.countryCode);
-                countryValue.innerHTML = `${flag} ${testResult.country}`;
-                countryEl.style.display = 'block';
+            const fallbackData = await fallbackResponse.json();
+            if (fallbackData.success) {
+                handleSuccessfulTest(fallbackData, startTime, statusEl, pingEl, countryEl, countryValue, button);
+            } else {
+                throw new Error('IP lookup failed');
             }
-            
-            showToast(`✓ IP is valid! (${pingTime}ms)`);
-        } else {
-            throw new Error('IP validation failed');
+            return;
         }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.reason || 'IP lookup failed');
+        }
+        
+        handleSuccessfulTest(data, startTime, statusEl, pingEl, countryEl, countryValue, button);
         
     } catch (err) {
         console.error('Proxy test error:', err);
-        
-        // Fallback: Simple connectivity check
-        const pingTime = Date.now() - startTime;
-        pingEl.textContent = 'N/A';
-        pingEl.style.color = '#ff9800';
-        statusEl.textContent = '⚠ Unknown';
-        statusEl.style.background = 'rgba(255, 152, 0, 0.2)';
-        statusEl.style.borderColor = 'rgba(255, 152, 0, 0.5)';
-        button.innerHTML = '⚠ Test Failed';
-        button.style.background = 'rgba(255, 152, 0, 0.3)';
-        button.style.borderColor = 'rgba(255, 152, 0, 0.5)';
-        showToast('⚠ Could not verify proxy status');
+        handleFailedTest(startTime, statusEl, pingEl, button);
+    }
+}
+
+function handleSuccessfulTest(data, startTime, statusEl, pingEl, countryEl, countryValue, button) {
+    const pingTime = Date.now() - startTime;
+    pingEl.textContent = `${pingTime}ms`;
+    pingEl.style.color = '#4caf50';
+    
+    statusEl.textContent = '✓ IP Valid';
+    statusEl.style.background = 'rgba(0, 255, 0, 0.2)';
+    statusEl.style.borderColor = 'rgba(0, 255, 0, 0.5)';
+    
+    button.innerHTML = '✓ IP Found';
+    button.style.background = 'rgba(0, 255, 0, 0.3)';
+    button.style.borderColor = 'rgba(0, 255, 0, 0.5)';
+    
+    // Show country info - handle different API response formats
+    const country = data.country || data.country_name;
+    const countryCode = data.country_code || data.country_code;
+    
+    if (country) {
+        const flag = getCountryFlag(countryCode);
+        countryValue.innerHTML = `${flag} ${country}`;
+        countryEl.style.display = 'block';
     }
     
+    showToast(`✓ IP validated! (${pingTime}ms)`);
+    button.disabled = false;
+}
+
+function handleFailedTest(startTime, statusEl, pingEl, button) {
+    pingEl.textContent = 'N/A';
+    pingEl.style.color = '#ff9800';
+    statusEl.textContent = '⚠ Unknown';
+    statusEl.style.background = 'rgba(255, 152, 0, 0.2)';
+    statusEl.style.borderColor = 'rgba(255, 152, 0, 0.5)';
+    button.innerHTML = '⚠ Test Failed';
+    button.style.background = 'rgba(255, 152, 0, 0.3)';
+    button.style.borderColor = 'rgba(255, 152, 0, 0.5)';
+    showToast('⚠ Could not verify IP');
     button.disabled = false;
 }
 
 // Get country flag emoji from country code
 function getCountryFlag(countryCode) {
-    if (!countryCode) return '🌍';
+    if (!countryCode || countryCode.length !== 2) return '🌍';
     const codePoints = countryCode
         .toUpperCase()
         .split('')
