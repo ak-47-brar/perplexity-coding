@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free SOCKS5 Proxies - Telegram Ready</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+
+    <div class="container">
+        <header class="glass-card">
+            <h1>🚀 Free SOCKS5 Proxies</h1>
+            <p class="subtitle">Click any proxy to add to Telegram instantly</p>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="proxyCount">0</span>
+                    <span class="stat-label">Available Proxies</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="lastUpdate">-</span>
+                    <span class="stat-label">Last Updated</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls glass-card">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by IP or port...">
+                <button id="searchBtn">🔍</button>
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="fast">Fast Only</button>
+                <button class="filter-btn" id="refreshBtn">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading glass-card">
+            <div class="loader"></div>
+            <p>Fetching fresh proxies...</p>
+        </div>
+
+        <div id="proxyGrid" class="proxy-grid"></div>
+
+        <div id="error" class="error glass-card" style="display: none;">
+            <p>❌ Failed to load proxies. Please try again later.</p>
+        </div>
+    </div>
+
+    <footer class="glass-card">
+        <p>💡 Auto-updates every 6 hours via GitHub Actions</p>
+        <p class="small">Proxies sourced from <a href="https://github.com/proxifly/free-proxy-list" target="_blank">Proxifly</a></p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
