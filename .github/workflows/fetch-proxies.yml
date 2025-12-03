@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write  # This allows the workflow to push changes
+
 jobs:
   fetch-proxies:
     runs-on: ubuntu-latest
@@ -15,6 +18,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch proxy data
         run: |
@@ -24,7 +29,7 @@ jobs:
         run: |
           python3 << 'EOF'
           import json
-          from datetime import datetime
+          from datetime import datetime, timezone
 
           proxies = []
           
@@ -48,7 +53,7 @@ jobs:
 
           # Create JSON output
           output = {
-              'lastUpdate': datetime.utcnow().isoformat() + 'Z',
+              'lastUpdate': datetime.now(timezone.utc).isoformat(),
               'count': len(proxies),
               'proxies': proxies
           }
@@ -65,5 +70,3 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add proxies.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update proxies [$(date)]" && git push)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
