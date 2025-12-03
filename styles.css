@@ -85,6 +85,28 @@ body {
     }
 }
 
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -247,7 +269,6 @@ header h1 {
     border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 1.5rem;
     transition: all 0.3s ease;
-    cursor: pointer;
     position: relative;
     overflow: hidden;
 }
@@ -289,8 +310,9 @@ header h1 {
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: rgba(0, 255, 0, 0.2);
-    border: 1px solid rgba(0, 255, 0, 0.5);
+    background: rgba(128, 128, 128, 0.2);
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    transition: all 0.3s ease;
 }
 
 .proxy-info {
@@ -309,6 +331,34 @@ header h1 {
     opacity: 0.8;
 }
 
+.proxy-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ping-btn {
+    padding: 0.7rem;
+    background: rgba(255, 193, 7, 0.3);
+    color: #fff;
+    border: 1px solid rgba(255, 193, 7, 0.5);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.ping-btn:hover:not(:disabled) {
+    background: rgba(255, 193, 7, 0.4);
+    transform: scale(1.02);
+}
+
+.ping-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .telegram-link {
     display: inline-block;
     width: 100%;
@@ -325,6 +375,42 @@ header h1 {
 .telegram-link:hover {
     background: linear-gradient(135deg, #0099dd, #00b0ff);
     box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+}
+
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.page-btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.page-info {
+    flex: 1;
+    text-align: center;
+    font-size: 0.95rem;
 }
 
 .error {
@@ -374,5 +460,13 @@ footer a:hover {
 
     .filter-buttons {
         justify-content: center;
+    }
+    
+    .pagination {
+        flex-direction: column;
+    }
+    
+    .page-info {
+        order: -1;
     }
 }

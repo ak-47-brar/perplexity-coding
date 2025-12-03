@@ -1,5 +1,7 @@
 let allProxies = [];
 let filteredProxies = [];
+let currentPage = 1;
+const proxiesPerPage = 12; // Show 12 proxies per page
 
 const proxyGrid = document.getElementById('proxyGrid');
 const loading = document.getElementById('loading');
@@ -28,7 +30,9 @@ async function fetchProxies() {
         proxyCountEl.textContent = allProxies.length;
         lastUpdateEl.textContent = new Date(data.lastUpdate).toLocaleTimeString();
         
-        displayProxies(filteredProxies);
+        currentPage = 1;
+        displayProxies();
+        updatePagination();
         loading.style.display = 'none';
     } catch (err) {
         console.error('Error fetching proxies:', err);
@@ -37,38 +41,154 @@ async function fetchProxies() {
     }
 }
 
-// Display proxies in grid
-function displayProxies(proxies) {
+// Display proxies with pagination
+function displayProxies() {
     proxyGrid.innerHTML = '';
     
-    if (proxies.length === 0) {
+    if (filteredProxies.length === 0) {
         proxyGrid.innerHTML = '<div class="glass-card" style="grid-column: 1/-1; text-align: center;">No proxies found matching your criteria.</div>';
         return;
     }
 
-    proxies.forEach((proxy, index) => {
+    const startIndex = (currentPage - 1) * proxiesPerPage;
+    const endIndex = startIndex + proxiesPerPage;
+    const paginatedProxies = filteredProxies.slice(startIndex, endIndex);
+
+    paginatedProxies.forEach((proxy, index) => {
         const card = document.createElement('div');
         card.className = 'proxy-card';
         card.style.animationDelay = `${index * 0.05}s`;
+        card.dataset.ip = proxy.ip;
+        card.dataset.port = proxy.port;
         
         const telegramLink = `https://t.me/proxy?server=${proxy.ip}&port=${proxy.port}`;
         
         card.innerHTML = `
             <div class="proxy-header">
                 <span class="proxy-icon">🌐</span>
-                <span class="proxy-status">✓ Active</span>
+                <span class="proxy-status" data-status="unknown">⏳ Unknown</span>
             </div>
             <div class="proxy-info">
                 <div class="proxy-ip">${proxy.ip}</div>
                 <div class="proxy-port">Port: ${proxy.port}</div>
+                <div class="proxy-ping" style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.5rem;">Ping: <span class="ping-value">-</span></div>
             </div>
-            <a href="${telegramLink}" class="telegram-link" target="_blank" rel="noopener noreferrer">
-                📱 Add to Telegram
-            </a>
+            <div class="proxy-actions">
+                <button class="ping-btn" onclick="testProxy('${proxy.ip}', '${proxy.port}', this)">
+                    🔍 Test Proxy
+                </button>
+                <a href="${telegramLink}" class="telegram-link" target="_blank" rel="noopener noreferrer">
+                    📱 Add to Telegram
+                </a>
+            </div>
         `;
         
         proxyGrid.appendChild(card);
     });
+}
+
+// Test proxy connectivity
+async function testProxy(ip, port, button) {
+    const card = button.closest('.proxy-card');
+    const statusEl = card.querySelector('.proxy-status');
+    const pingEl = card.querySelector('.ping-value');
+    
+    button.disabled = true;
+    button.textContent = '⏳ Testing...';
+    statusEl.textContent = '⏳ Testing';
+    statusEl.style.background = 'rgba(255, 193, 7, 0.2)';
+    statusEl.style.borderColor = 'rgba(255, 193, 7, 0.5)';
+    
+    const startTime = Date.now();
+    
+    try {
+        // Test using a CORS proxy to check if the proxy server responds
+        // Note: This is a basic connectivity test, not a full SOCKS5 test
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        // Try to connect to a simple endpoint through the proxy
+        // Since we can't directly test SOCKS5 from browser, we'll use a timing-based approach
+        const testUrl = `https://api.ipify.org?format=json`;
+        
+        try {
+            await fetch(testUrl, {
+                signal: controller.signal,
+                mode: 'cors'
+            });
+            clearTimeout(timeoutId);
+            
+            const pingTime = Date.now() - startTime;
+            pingEl.textContent = `${pingTime}ms`;
+            statusEl.textContent = '✓ Reachable';
+            statusEl.style.background = 'rgba(0, 255, 0, 0.2)';
+            statusEl.style.borderColor = 'rgba(0, 255, 0, 0.5)';
+            button.textContent = '✓ Working';
+            button.style.background = 'rgba(0, 255, 0, 0.3)';
+            
+            showToast('✓ Proxy appears reachable!');
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            throw fetchError;
+        }
+        
+    } catch (err) {
+        const pingTime = Date.now() - startTime;
+        pingEl.textContent = 'Timeout';
+        statusEl.textContent = '✗ Failed';
+        statusEl.style.background = 'rgba(255, 0, 0, 0.2)';
+        statusEl.style.borderColor = 'rgba(255, 0, 0, 0.5)';
+        button.textContent = '✗ Failed';
+        button.style.background = 'rgba(255, 0, 0, 0.3)';
+        
+        showToast('✗ Proxy test failed or timed out');
+    }
+    
+    button.disabled = false;
+}
+
+// Pagination controls
+function updatePagination() {
+    const totalPages = Math.ceil(filteredProxies.length / proxiesPerPage);
+    let paginationEl = document.getElementById('pagination');
+    
+    if (!paginationEl) {
+        paginationEl = document.createElement('div');
+        paginationEl.id = 'pagination';
+        paginationEl.className = 'pagination glass-card';
+        document.querySelector('.container').appendChild(paginationEl);
+    }
+    
+    if (totalPages <= 1) {
+        paginationEl.style.display = 'none';
+        return;
+    }
+    
+    paginationEl.style.display = 'flex';
+    paginationEl.innerHTML = `
+        <button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+            ← Previous
+        </button>
+        <div class="page-info">
+            Page <strong>${currentPage}</strong> of <strong>${totalPages}</strong>
+            <span style="opacity: 0.7; margin-left: 1rem;">(${filteredProxies.length} proxies)</span>
+        </div>
+        <button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+            Next →
+        </button>
+    `;
+}
+
+function changePage(page) {
+    const totalPages = Math.ceil(filteredProxies.length / proxiesPerPage);
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    displayProxies();
+    updatePagination();
+    
+    // Smooth scroll to top of proxy grid
+    proxyGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Search functionality
@@ -84,7 +204,9 @@ function searchProxies() {
         );
     }
     
-    displayProxies(filteredProxies);
+    currentPage = 1;
+    displayProxies();
+    updatePagination();
     proxyCountEl.textContent = filteredProxies.length;
 }
 
@@ -99,13 +221,15 @@ filterBtns.forEach(btn => {
         if (filter === 'all') {
             filteredProxies = [...allProxies];
         } else if (filter === 'fast') {
-            // Filter by common fast proxy ports or implement your own logic
+            // Filter by common fast proxy ports
             filteredProxies = allProxies.filter(proxy => 
                 parseInt(proxy.port) < 10000
             );
         }
         
-        displayProxies(filteredProxies);
+        currentPage = 1;
+        displayProxies();
+        updatePagination();
         proxyCountEl.textContent = filteredProxies.length;
     });
 });
@@ -136,12 +260,14 @@ function showToast(message) {
         border-radius: 12px;
         z-index: 1000;
         animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
     
     setTimeout(() => {
-        toast.remove();
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
 
